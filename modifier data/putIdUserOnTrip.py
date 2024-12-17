@@ -9,7 +9,7 @@ unique_users = pd.read_csv('./modifier data/unique_users.csv')
 df = pd.merge(df, unique_users[['usertype', 'birth year', 'gender', 'id']], 
               on=['usertype', 'birth year', 'gender'], 
               how='left')
-
+df = df.rename(columns={'id': 'user_id'})
 # Sauvegarder le fichier modifié
 df.to_csv('./modifier data/hubway-tripdata-with-user_id.csv', index=False)
 
@@ -17,6 +17,6 @@ print("Colonne 'user_id' ajoutée et fichier sauvegardé.")
 
 choix = random.randint(1,169)
 
-print(f"nombre de trajet de l'user {choix} : {(df['id'] == choix).sum()}")
+print(f"nombre de trajet de l'user {choix} : {(df['user_id'] == choix).sum()}")
 
 

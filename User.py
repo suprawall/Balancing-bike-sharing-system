@@ -5,6 +5,10 @@ class User:
         self.id = id
         self.max_distance = max_distance  # γ_u
         self.cost = cost  # c_u
+        if random.uniform(0,1) < 0.5:
+            self.action = "pick"
+        else:
+            self.action = "return"
     
     def generate_random_location(center, radius):
         lat, lon = center
@@ -17,3 +21,9 @@ class User:
         if distance <= self.max_distance and price >= self.cost:
             return True
         return False
+    
+    def change_action(self):
+        if self.action == "pick":
+            self.action = "return"
+        else:
+            self.action = "pick"
