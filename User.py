@@ -19,8 +19,8 @@ class User:
 
     def accept_offer(self, distance, price):
         if distance <= self.max_distance and price >= self.cost:
-            return True
-        return False
+            return 1
+        return 0
     
     def change_action(self):
         if self.action == "pick":
