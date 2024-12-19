@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv("./modifier data/201501-hubway-tripdata.csv")
+data = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
 
-users = data[['usertype', 'birth year', 'gender']]
+users = data[["usertype","postal code"]]
 unique_users = users.drop_duplicates()
 unique_users['id'] = range(1, len(unique_users) + 1)
 

@@ -1,6 +1,6 @@
 import pandas as pd
 
-data = pd.read_csv("./201501-hubway-tripdata.csv")
+data = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
 
 start_stations = data[['start station id', 'start station latitude', 'start station longitude']]
 end_stations = data[['end station id', 'end station latitude', 'end station longitude']]

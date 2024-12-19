@@ -2,13 +2,14 @@ import numpy as np
 import pandas as pd
 import random
 from scipy.stats import uniform
-import User
-import Station
+from User import User
+from Station import Station
 import math
 import DBPUCB
+import copy
 
 data_stations = pd.read_csv("./modifier data/unique_stations.csv")
-data_trip = pd.read_csv("./modifier data/hubway-tripdata-with-user_id.csv")
+data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
 data_user = pd.read_csv("./modifier data/unique_users.csv")
 
 NB_USER = len(data_user)
@@ -18,11 +19,19 @@ USERS = []
 
 def init():
     stations = []
+    count_full = 0
+    count_empty = 0
     for _, row in data_stations.iterrows():  
         station_id = row['station id']
         latitude = row['latitude']
         longitude = row['longitude']
-        stations.append(Station(station_id, (latitude, longitude), random.randint(0,10), 10))
+        bikes = random.randint(0,4)
+        stations.append(Station(station_id, (latitude, longitude), bikes, 4))
+        if bikes == 10:
+            count_full += 1
+        elif bikes == 0:
+            count_empty += 1
+    print(f"il y a {count_empty} stations vide et {count_full} stations pleine sur 430 stations: {int((count_empty+count_full)/430*100)}% sont problématique")
     users = []
     for _, row in data_user.iterrows():
         users.append(User(row['id'], row['gamma_u'], row['c_u']))
@@ -56,52 +65,63 @@ def find_min_station(stations, latu, longu):
         lats = station.localisation[0]
         longs = station.localisation[1]
         d = distance(latu, longu, lats, longs)
-        if(d < min_d or min_d is None):
+        if(min_d is None or d < min_d ):
             min_d = d
             min_station = station
     return min_station
+
+def IDS(latu, longu, current_user):
+    
+    # cherche la default target
+    default_target = find_min_station(STATIONS, latu, longu)
+            
+    #Construire liste des stations candidates
+    C = [
+        station for station in STATIONS
+        if (
+            distance(latu, longu, station.localisation[0], station.localisation[1]) <= current_user.max_distance
+            and (
+                (current_user.action == "pick" and station.problematic() == "empty")
+                or (current_user.action == "return" and station.problematic() == "full")
+            )
+        )
+    ]
+    print("=================================================")
+    #Vérification et offre
+    if (default_target in C or len(C) == 0):
+        print(C)
+        print(f"default target: {default_target.id}")
+        print(f"pas d'offre possible pour l'user numéro {current_user.id}")
+        return None, None
+    station_offre = find_min_station(C, latu, longu)
+    prix_offre = pricing_mechanisme()
+    
+    print(C)
+    print(f"voici l'offre pour l'user numéro {current_user.id}: aller à station {station_offre.id} au lieu de la {default_target.id} et marcher {int(distance(latu, longu, station_offre.localisation[0], station_offre.localisation[1]))} mètres, pour une récompense de {prix_offre}")
+    
+    return station_offre, prix_offre
         
 
-def Simulation(nb_user, nb_station):
-    for _, row in data_trip.iterrows():
+def Simulation():
+    for i, (_, row) in enumerate(data_trip.iterrows()):
+        if(i > 4):
+            return
+        #Get l'user
         current_id = row['user_id']
         current_user = USERS_DICT.get(current_id)
         start_lat = row['start station latitude']
         start_long = row['start station longitude']
         latu, longu = current_user.generate_random_location((start_lat, start_long), 500)
-        C = STATIONS.copy()
         
-        # cherche la default target
-        default_target = find_min_station(STATIONS, latu, longu)
-                
-        #Construire liste des stations candidates
-        for station in STATIONS:
-            status = station.problematic()
-            lats = station.localisation[0]
-            longs = station.localisation[1]
-            d = distance(latu, longu, lats, longs)
-            if(d > current_user.max_distance):
-                C.remove(station)
-                continue
-            if(current_user.action == "pick" and status != "empty"):
-                C.remove(station)
-                continue
-            if(current_user.action == "return" and status != "full"):
-                C.remove(station)
+        #Incentives Deployment Schema
+        s_star, p_star = IDS(latu, longu, current_user)
         
-        #Vérification et offre
-        if (default_target in C or len(C) == 0):
-            continue
-        station_offre = find_min_station(C, latu, longu)
-        prix_offre = pricing_mechanisme()
         
-        return station_offre, prix_offre
-        
-            
-
 
 STATIONS, USERS = init()
 USERS_DICT = {user.id: user for user in USERS}
 STATIONS_DICT = {station.id: station for station in STATIONS}
 
+
+Simulation()
     

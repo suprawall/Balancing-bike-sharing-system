@@ -10,7 +10,7 @@ class User:
         else:
             self.action = "return"
     
-    def generate_random_location(center, radius):
+    def generate_random_location(self, center, radius):
         lat, lon = center
         radius_in_degrees = radius / 111000  # Conversion du rayon en degrés
         rand_lat = lat + random.uniform(-radius_in_degrees, radius_in_degrees)
