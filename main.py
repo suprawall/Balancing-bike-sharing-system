@@ -132,18 +132,27 @@ def Simulation(batch):
     F_n = [0 for _ in range(len(prices))]
     B_n = budget
     
+    #Variable pour print...
     nb_accepted_offre = 0
     nb_proposed_offre = 0
     nb_batch = 0
+    
+    nb_ac_per_batch = 0
+    nb_pr_per_batch = 0
+    total_persons_last_interval = 0
     
     for i, (_, row) in enumerate(data_trip.iterrows()):        
         #Vérification Nouveau Batch...
         if(batch.is_nv_batch(row['starttime'])):
             nb_batch += 1
-            if(nb_batch == 20):
-                #print("###############################################")
-                #print(f"Nouveau batch au bout de la {i+1}ème requête.. et donc arrêt")
-                return nb_accepted_offre, nb_proposed_offre, nb_batch
+            if(nb_batch % 10 == 0):
+                persons_in_interval = i - total_persons_last_interval
+                total_persons_last_interval = i
+                print(f"Juste pour les batchs [{nb_batch}/100] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% || {persons_in_interval} personnes au total")
+                nb_ac_per_batch = 0
+                nb_pr_per_batch = 0
+            if(nb_batch == 100):
+                return nb_accepted_offre, nb_proposed_offre, nb_batch, i
             B_n += 100
             budget = B_n
             
@@ -162,6 +171,7 @@ def Simulation(batch):
         
         if(p_star is not None):
             nb_proposed_offre += 1
+            nb_pr_per_batch += 1
             i_n = prices.index(p_star)
             
             #Offre et update des variables
@@ -173,6 +183,7 @@ def Simulation(batch):
             
             if(y_n == 1):
                 nb_accepted_offre += 1
+                nb_ac_per_batch += 1
                 #print(f"la station {s_star[0].id} a donc {s_star[0].bikes} vélos dans son stock avant la MAJ")
                 if(current_user.action == "pick"):
                     #print(f"cet utilisateur accepte l'offre, il va {current_user.action} un vélo, la station {s_star[0].id} a donc maintenant {s_star[0].bikes - 1} vélos dans son stock")
@@ -190,7 +201,8 @@ USERS_DICT = {user.id: user for user in USERS}
 #STATIONS_DICT = {station.id: station for station in STATIONS}
 
 batch = Batch()
-nb_a, nb_p, nb_b = Simulation(batch)
-print(f"Il y a eu {nb_a} offres accepté sur {nb_p} proposé dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%)")
+nb_a, nb_p, nb_b, i = Simulation(batch)
+print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%)")
+print(f"{i} itérations")
 #print(get_z(data_trip))
     
