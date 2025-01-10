@@ -33,6 +33,17 @@ print(f"nombre de personne pouvant 1000m : {(unique_users['gamma_u'] == 1000).su
 print(f"nombre de personne pouvant 1500m : {(unique_users['gamma_u'] == 1500).sum()}")
 print(f"nombre de personne pouvant 2000m : {(unique_users['gamma_u'] == 2000).sum()}")
 
+trips_count = data.groupby('user_id').size().reset_index(name='number_of_trips')
+
+# Fusionner les données avec unique_users pour ajouter la colonne number_of_trips
+unique_users = unique_users.merge(trips_count, left_on='id', right_on='user_id', how='left')
+
+# Remplir les utilisateurs sans voyages avec 0 (au cas où il y en aurait)
+unique_users['number_of_trips'].fillna(0, inplace=True)
+
+# Sauvegarder les données
 output_path = "./modifier data/unique_users.csv"
 unique_users.to_csv(output_path, index=False)
+
+print("Fichier unique_users.csv sauvegardé avec succès.")
 

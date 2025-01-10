@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import math
 import copy
+import ExperimentTest
 
 from scipy.stats import uniform
 from User import User
@@ -18,7 +19,7 @@ NB_USER = len(data_user)
 NB_STATION = len(data_stations)
 STATIONS = []
 USERS = []
-CAPACITE_STATION = 5
+CAPACITE_STATION = 7
 
 def init():
     stations = []
@@ -184,6 +185,7 @@ def Simulation(batch):
             if(y_n == 1):
                 nb_accepted_offre += 1
                 nb_ac_per_batch += 1
+                ExperimentTest.new_accepted_offer(current_id)
                 #print(f"la station {s_star[0].id} a donc {s_star[0].bikes} vélos dans son stock avant la MAJ")
                 if(current_user.action == "pick"):
                     #print(f"cet utilisateur accepte l'offre, il va {current_user.action} un vélo, la station {s_star[0].id} a donc maintenant {s_star[0].bikes - 1} vélos dans son stock")
@@ -193,6 +195,7 @@ def Simulation(batch):
                     #print(f"cet utilisateur accepte l'offre, il va {current_user.action} un vélo, la station {s_star[0].id} a donc maintenant {s_star[0].bikes + 1} vélos dans son stock")
                     current_user.action = "pick"
                     s_star[0].bikes += 1
+        
                 
         
 
@@ -204,5 +207,6 @@ batch = Batch()
 nb_a, nb_p, nb_b, i = Simulation(batch)
 print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%)")
 print(f"{i} itérations")
+ExperimentTest.compute_result_accepted_offer_per_user(len(USERS), False)
 #print(get_z(data_trip))
     
