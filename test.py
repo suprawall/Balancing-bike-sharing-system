@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+from sortedcontainers import SortedDict
 
 data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
 
@@ -16,7 +17,7 @@ def get_next_trip(last_trip_index):
         i += 1
     return dic
 
-print(get_next_trip(54))
+print(get_next_trip(3))
 re = {0:1, 1:2, 2:4}
 print(re[0])
 print(list(re.keys())[2])
@@ -25,6 +26,29 @@ print(re)
 for i in range(4, 10):
     re[i] = i+1
 print(re)
+
+remember_offre = {2:[(70,-59), 54], 6:[(56,2), 39]}
+for idx, inf in remember_offre.items():
+    print(idx)
+    pos, id = inf
+    print(pos)
+    print(id)
+    print("======")
+    
+for i in range(10):
+    if remember_offre and i == next(iter(remember_offre)):
+        print(i)
+        remember_offre.pop(i)
+        
+Remember_offre = SortedDict()
+Remember_offre[5] = 0
+print(Remember_offre)
+Remember_offre[1] = 1
+print(Remember_offre)
+Remember_offre[10] = 6
+print(Remember_offre)
+Remember_offre[2] = 8
+print(Remember_offre)
 
 
 comp = 0

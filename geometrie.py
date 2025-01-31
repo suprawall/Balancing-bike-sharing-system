@@ -60,9 +60,8 @@ long1 = -71.0898108780384
 lat2 = 42.3294633
 long2 = -71.0901582
 
-lat3, long3 = midpoint(lat1, long1, lat2, long2)
+pos = midpoint(lat1, long1, lat2, long2)
 
 print(distance(lat1, long1, lat2, long2))
-print(lat3)
-print(long3)
-print(distance(lat1, long1, lat3, long3))"""
+print(pos)
+#print(distance(lat1, long1, lat3, long3))"""

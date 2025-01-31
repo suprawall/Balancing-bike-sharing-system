@@ -22,7 +22,7 @@ def new_accepted_offer(user_id):
 def compute_result_accepted_offer_per_user(nb_user_total, count_zero_accepted = False):
     global count_unique_user_ac_offer
     repartition = {}
-    print(accepted_offers_per_users)
+    #print(accepted_offers_per_users)
     for nb in accepted_offers_per_users.values():
         if nb not in repartition:
             repartition[nb] = 0
@@ -65,6 +65,9 @@ def compute_result_accepted_offer_per_user(nb_user_total, count_zero_accepted = 
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.show()
+    
+def compute_proposed_per_considere():
+    pass
     
 
 #######################################################
