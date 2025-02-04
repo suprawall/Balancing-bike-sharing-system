@@ -14,14 +14,14 @@ from ExperimentTest import new_accepted_offer, compute_result_accepted_offer_per
 #from DBPUCB import DBP_UCB
 
 data_stations = pd.read_csv("./modifier data/unique_stations.csv")
-data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
-data_user = pd.read_csv("./modifier data/unique_users.csv")
+data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata2.csv")
+data_user = pd.read_csv("./modifier data/unique_users2.csv")
 
 NB_USER = len(data_user)
 NB_STATION = len(data_stations)
 STATIONS = []
 USERS = []
-CAPACITE_STATION = 7
+CAPACITE_STATION = 5
 
 def init():
     stations = []
@@ -40,7 +40,7 @@ def init():
     print(f"il y a {count_empty} stations vide et {count_full} stations pleine sur 430 stations: {int((count_empty+count_full)/430*100)}% sont problématique")
     users = []
     for _, row in data_user.iterrows():
-        users.append(User(row['id'], row['gamma_u'], row['c_u']))
+        users.append(User(row['user_id'], row['gamma_u'], row['c_u']))
     
     return stations, users
 
@@ -78,7 +78,7 @@ def DBP_UCB(para):
     return prices[i_n]
     
 
-def IDS(latu, longu, current_user, info_for_DBP, obj_station=None):
+def IDS_modif(latu, longu, current_user, info_for_DBP, obj_station=None):
     
     # cherche la default target
     if(obj_station is None):
@@ -104,7 +104,7 @@ def IDS(latu, longu, current_user, info_for_DBP, obj_station=None):
         """print(C)
         print(f"default target: {default_target.id}")
         print(f"pas d'offre possible pour l'user numéro {current_user.id}")"""
-        return None, None
+        return default_target, None
     station_offre, distance_s = find_min_station(C, latu, longu)
     prix_offre = DBP_UCB(info_for_DBP)
     
@@ -114,10 +114,12 @@ def IDS(latu, longu, current_user, info_for_DBP, obj_station=None):
     return (station_offre, distance_s), prix_offre
         
 
-def Simulation(batch):
+def Simulation_modif(batch, stations, user_dict):
     
     #Initialisation pour algo...
+    nb_stations = len(stations)
     prices = init_price()
+    print(prices)
     n = 0
     budget = 100
     N_n = [0 for _ in range(len(prices))]
@@ -136,6 +138,8 @@ def Simulation(batch):
     nb_accepted_offre2 = 0
     nb_proposed_offre2 = 0
     nb_batch = 0
+    potential_customer = 0
+    no_service_event = 0
     
     nb_ac_per_batch = 0
     nb_pr_per_batch = 0
@@ -145,7 +149,7 @@ def Simulation(batch):
     total_persons_last_interval = 0
     
     #Var arrêt...
-    arret = 2000000
+    arret = 800000
     
     for i in range(2678400):
         if(i > arret):
@@ -162,7 +166,7 @@ def Simulation(batch):
                     info_for_DBP = [prices, n, budget, N_n, F_n, B_n]
                     changement_station = False
 
-                    s_star, p_star = IDS(pos[0], pos[1], user, info_for_DBP, obj_station=station)
+                    s_star, p_star = IDS_modif(pos[0], pos[1], user, info_for_DBP, obj_station=station)
                     if(p_star is not None):
                         nb_proposed_offre2 += 1
                         nb_pr_per_batch2 += 1
@@ -212,15 +216,20 @@ def Simulation(batch):
             if(nb_batch % 10 == 0):
                 persons_in_interval = current_idx - total_persons_last_interval
                 total_persons_last_interval = current_idx
-                print(f"Juste pour les batchs [{nb_batch}/{int(arret/7200)}] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% en premiere instance|| {persons_in_interval} trips au total")
-                print(f"{nb_considerer2} trip considéré en deuxieme instance")
-                print(f"parmis ceux-la: proposed: {nb_pr_per_batch2}, accepted: {nb_ac_per_batch2} // {int(nb_ac_per_batch2/nb_pr_per_batch2*100) if nb_pr_per_batch2 != 0 else 0}% en deuxieme instance")
+                print("----------------------------------------------------------------------------------------------------------------------------")
+                print(f"Juste pour les batchs [{nb_batch}/{int(arret/7200)}] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% en premiere instance |=> Service Level: {(potential_customer - no_service_event) / potential_customer}|| Budget: {int(B_n)}")
+                print(f"{nb_considerer2} trip considéré en deuxieme instance || parmis ceux-la: proposed: {nb_pr_per_batch2}, accepted: {nb_ac_per_batch2} // {int(nb_ac_per_batch2/nb_pr_per_batch2*100) if nb_pr_per_batch2 != 0 else 0}% en deuxieme instance")
+                count_pb = 0
+                for station in stations:
+                    if station.problematic() != "null":
+                      count_pb += 1
+                print(f"{int(count_pb*100 / nb_stations)}% des stations sont problématiques")  
                 nb_ac_per_batch = 0
                 nb_pr_per_batch = 0
                 nb_ac_per_batch2 = 0
                 nb_pr_per_batch2 = 0
                 nb_considerer2 = 0
-            B_n += 100
+            B_n += 50
             budget = B_n
         
         #Check si on est à un moment ou y a aucun(s) trip(s)
@@ -230,18 +239,19 @@ def Simulation(batch):
         #Algo de base
         if i == tps_next_trip:
             for index in idx_next_trip:
+                potential_customer += 1
                 row = data_trip.iloc[index]         
                 info_for_DBP = [prices, n, budget, N_n, F_n, B_n]
                 
                 #Get l'user
                 current_id = row['user_id']
-                current_user = USERS_DICT.get(current_id)
+                current_user = user_dict.get(current_id)
                 start_lat = row['start station latitude']
                 start_long = row['start station longitude']
                 latu, longu = current_user.generate_random_location((start_lat, start_long), 100)
                 
                 #Incentives Deployment Schema
-                s_star, p_star = IDS(latu, longu, current_user, info_for_DBP)
+                s_star, p_star = IDS_modif(latu, longu, current_user, info_for_DBP)
                 
                 if(p_star is not None):
                     nb_proposed_offre += 1
@@ -263,6 +273,10 @@ def Simulation(batch):
                         pos_moitie = midpoint(latu, longu, lat_obj, long_obj)       # Milieux entre sa position actuelle et la station ou il a accepté d'aller
                         tps_moitie = i + (row['discret_time'])
                         Remember_offre[tps_moitie] = [current_user, pos_moitie, s_star[0]]
+                else:
+                    if((current_user.action == "pick" and s_star.problematic() == "empty") or (current_user.action == "return" and s_star.problematic() == "full")):
+                        no_service_event += 1
+                        
             
             current_idx = idx_next_trip[-1] + 1                
             tps_next_trip, idx_next_trip = get_next_trip(current_idx)
@@ -270,10 +284,11 @@ def Simulation(batch):
 
 STATIONS, USERS = init()
 USERS_DICT = {user.id: user for user in USERS}
+NB_STAION = len(STATIONS)
 #STATIONS_DICT = {station.id: station for station in STATIONS}
 
 batch = Batch()
-nb_a, nb_p, nb_a2, nb_p2, nb_b, idx, i = Simulation(batch)
+nb_a, nb_p, nb_a2, nb_p2, nb_b, idx, i = Simulation_modif(batch, STATIONS, USERS_DICT)
 print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%) | En première instance")
 print(f"Il y a eu {nb_a2} offres acceptées sur {nb_p2} proposées dans les {nb_b} premiers batch, ({int(nb_a2 / nb_p2  * 100)}%) | En deuxième instance")
 compute_result_accepted_offer_per_user(len(USERS), False)

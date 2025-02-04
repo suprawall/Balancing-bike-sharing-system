@@ -9,17 +9,18 @@ from scipy.stats import uniform
 from User import User
 from Station import Station
 from Batch import Batch, get_z
+from algo_modif import Simulation_modif, get_next_trip, compute_result_accepted_offer_per_user
 #from DBPUCB import DBP_UCB
 
 data_stations = pd.read_csv("./modifier data/unique_stations.csv")
-data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
-data_user = pd.read_csv("./modifier data/unique_users.csv")
+data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata2.csv")
+data_user = pd.read_csv("./modifier data/unique_users2.csv")
 
 NB_USER = len(data_user)
 NB_STATION = len(data_stations)
 STATIONS = []
 USERS = []
-CAPACITE_STATION = 7
+CAPACITE_STATION = 5
 
 def init():
     stations = []
@@ -113,7 +114,7 @@ def IDS(latu, longu, current_user, info_for_DBP):
         """print(C)
         print(f"default target: {default_target.id}")
         print(f"pas d'offre possible pour l'user numéro {current_user.id}")"""
-        return None, None
+        return default_target, None
     station_offre, distance_s = find_min_station(C, latu, longu)
     prix_offre = DBP_UCB(info_for_DBP)
     
@@ -137,24 +138,32 @@ def Simulation(batch):
     nb_accepted_offre = 0
     nb_proposed_offre = 0
     nb_batch = 0
+    potential_customer = 0
+    no_service_event = 0
     
     nb_ac_per_batch = 0
     nb_pr_per_batch = 0
     total_persons_last_interval = 0
     
-    for i, (_, row) in enumerate(data_trip.iterrows()):        
+    for i, (_, row) in enumerate(data_trip.iterrows()):
+        potential_customer += 1      
         #Vérification Nouveau Batch...
         if(batch.is_nv_batch(row['starttime'])):
             nb_batch += 1
             if(nb_batch % 10 == 0):
                 persons_in_interval = i - total_persons_last_interval
                 total_persons_last_interval = i
-                print(f"Juste pour les batchs [{nb_batch}/100] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% || {persons_in_interval} personnes au total")
+                print(f"Juste pour les batchs [{nb_batch}/100] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% |=> Service Level: {(potential_customer - no_service_event) / potential_customer}|| Budget: {int(B_n)}")
+                count_pb = 0
+                for station in STATIONS:
+                    if station.problematic() != "null":
+                      count_pb += 1
+                print(f"{int(count_pb*100 / NB_STATION)}% des stations sont problématiques")
                 nb_ac_per_batch = 0
                 nb_pr_per_batch = 0
             if(nb_batch == 100):
                 return nb_accepted_offre, nb_proposed_offre, nb_batch, i
-            B_n += 100
+            B_n += 50
             budget = B_n
             
             
@@ -195,12 +204,18 @@ def Simulation(batch):
                     #print(f"cet utilisateur accepte l'offre, il va {current_user.action} un vélo, la station {s_star[0].id} a donc maintenant {s_star[0].bikes + 1} vélos dans son stock")
                     current_user.action = "pick"
                     s_star[0].bikes += 1
+        else:
+            if((current_user.action == "pick" and s_star.problematic() == "empty") or (current_user.action == "return" and s_star.problematic() == "full")):
+                no_service_event += 1
         
                 
         
 
 STATIONS, USERS = init()
 USERS_DICT = {user.id: user for user in USERS}
+station_copy = copy.deepcopy(STATIONS)
+users_dict_copy = copy.deepcopy(USERS_DICT)
+NB_STATION = len(STATIONS)
 #STATIONS_DICT = {station.id: station for station in STATIONS}
 
 batch = Batch()
@@ -209,4 +224,3 @@ print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b}
 print(f"{i} itérations")
 ExperimentTest.compute_result_accepted_offer_per_user(len(USERS), False)
 #print(get_z(data_trip))
-    

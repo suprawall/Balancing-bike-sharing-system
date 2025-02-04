@@ -1,11 +1,25 @@
 import pandas as pd
 import numpy as np
+from itertools import count
 
 data = pd.read_csv("./modifier data/202207-bluebikes-tripdata.csv")
-
+data2 = pd.read_csv("./modifier data/202207-bluebikes-tripdata2.csv")
 users = data[["usertype","postal code"]]
-unique_users = users.drop_duplicates()
-unique_users['id'] = range(1, len(unique_users) + 1)
+
+
+unique_users = []
+id_counter = count(1)  # Générateur d'IDs uniques
+
+grouped_users = users.groupby(['usertype', 'postal code'])
+
+for (_, group) in grouped_users:
+    sampled_group = group.iloc[:10]  # Prendre au max 10 occurrences
+    sampled_group = sampled_group.copy()  # Éviter les erreurs d'assignation sur les slices
+    sampled_group['id'] = [next(id_counter) for _ in range(len(sampled_group))]
+    unique_users.append(sampled_group)
+
+unique_users = pd.concat(unique_users)
+
 
 print(f"nombre de users potentielement différent: {len(unique_users)}")
 
@@ -33,7 +47,7 @@ print(f"nombre de personne pouvant 1000m : {(unique_users['gamma_u'] == 1000).su
 print(f"nombre de personne pouvant 1500m : {(unique_users['gamma_u'] == 1500).sum()}")
 print(f"nombre de personne pouvant 2000m : {(unique_users['gamma_u'] == 2000).sum()}")
 
-trips_count = data.groupby('user_id').size().reset_index(name='number_of_trips')
+trips_count = data2.groupby('user_id').size().reset_index(name='number_of_trips')
 
 # Fusionner les données avec unique_users pour ajouter la colonne number_of_trips
 unique_users = unique_users.merge(trips_count, left_on='id', right_on='user_id', how='left')
@@ -42,7 +56,7 @@ unique_users = unique_users.merge(trips_count, left_on='id', right_on='user_id',
 unique_users['number_of_trips'].fillna(0, inplace=True)
 
 # Sauvegarder les données
-output_path = "./modifier data/unique_users.csv"
+output_path = "./modifier data/unique_users2.csv"
 unique_users.to_csv(output_path, index=False)
 
 print("Fichier unique_users.csv sauvegardé avec succès.")
