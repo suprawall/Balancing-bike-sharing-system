@@ -9,7 +9,8 @@ from scipy.stats import uniform
 from User import User
 from Station import Station
 from Batch import Batch, get_z
-from algo_modif import Simulation_modif, get_next_trip, compute_result_accepted_offer_per_user
+from algo_modif import execute_nv_algo
+from ExperimentTest import new_accepted_offer, compute_result_accepted_offer_per_user, show_stats
 #from DBPUCB import DBP_UCB
 
 data_stations = pd.read_csv("./modifier data/unique_stations.csv")
@@ -145,7 +146,13 @@ def Simulation(batch):
     nb_pr_per_batch = 0
     total_persons_last_interval = 0
     
+    # Stockage des statistiques par batch
+    batch_stats = []
+    
     for i, (_, row) in enumerate(data_trip.iterrows()):
+        """if nb_batch > 30:
+            return nb_accepted_offre, nb_proposed_offre, nb_batch, i, batch_stats"""
+        
         potential_customer += 1      
         #Vérification Nouveau Batch...
         if(batch.is_nv_batch(row['starttime'])):
@@ -153,16 +160,32 @@ def Simulation(batch):
             if(nb_batch % 10 == 0):
                 persons_in_interval = i - total_persons_last_interval
                 total_persons_last_interval = i
-                print(f"Juste pour les batchs [{nb_batch}/100] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% |=> Service Level: {(potential_customer - no_service_event) / potential_customer}|| Budget: {int(B_n)}")
-                count_pb = 0
+                service_level = (potential_customer - no_service_event) / potential_customer
+                percent_problematic = int(sum(1 for station in STATIONS if station.problematic() != "null") * 100 / NB_STATION)
+                
+                batch_stats.append({
+                    "batch": nb_batch,
+                    "service_level": service_level,
+                    "proposed_1": nb_pr_per_batch,
+                    "accepted_1": nb_ac_per_batch,
+                    "percent_accepted_1": int(nb_ac_per_batch / nb_pr_per_batch * 100) if nb_pr_per_batch > 0 else 0,
+                    "budget": int(B_n),
+                    "percent_problematic": percent_problematic
+                })
+                
+                print("----------------------------------------------------------------------------------------------------------------------------")
+                print(f"Batch [{nb_batch - 10} --> {nb_batch}]: Service Level: {service_level}, Budget: {int(B_n)}, Stations problématiques: {percent_problematic}%")
+                print(f"Proposés: {nb_pr_per_batch}, Acceptés: {nb_ac_per_batch} ({int(nb_ac_per_batch/nb_pr_per_batch*100)})%")
+                """count_pb = 0
                 for station in STATIONS:
                     if station.problematic() != "null":
                       count_pb += 1
-                print(f"{int(count_pb*100 / NB_STATION)}% des stations sont problématiques")
+                print(f"{int(count_pb*100 / NB_STATION)}% des stations sont problématiques")"""
                 nb_ac_per_batch = 0
                 nb_pr_per_batch = 0
             if(nb_batch == 100):
-                return nb_accepted_offre, nb_proposed_offre, nb_batch, i
+                #return nb_accepted_offre, nb_proposed_offre, nb_batch, i
+                pass
             B_n += 50
             budget = B_n
             
@@ -207,6 +230,8 @@ def Simulation(batch):
         else:
             if((current_user.action == "pick" and s_star.problematic() == "empty") or (current_user.action == "return" and s_star.problematic() == "full")):
                 no_service_event += 1
+                
+    return nb_accepted_offre, nb_proposed_offre, nb_batch, i, batch_stats
         
                 
         
@@ -219,8 +244,21 @@ NB_STATION = len(STATIONS)
 #STATIONS_DICT = {station.id: station for station in STATIONS}
 
 batch = Batch()
-nb_a, nb_p, nb_b, i = Simulation(batch)
+nb_a, nb_p, nb_b, i, batch_stats_1 = Simulation(batch)
 print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%)")
 print(f"{i} itérations")
-ExperimentTest.compute_result_accepted_offer_per_user(len(USERS), False)
+#ExperimentTest.compute_result_accepted_offer_per_user(len(USERS), False)
 #print(get_z(data_trip))
+
+print("=========================================================================")
+print("=======================   Démarrage Nouveau Algo  =======================")
+print("=========================================================================")
+
+count_full = sum(1 for s in station_copy if s.bikes == s.capacity)
+count_empty = sum(1 for s in station_copy if s.bikes == 0)
+
+print(f"(Vérification) il y a {count_empty} stations vides et {count_full} stations pleines sur {len(station_copy)} stations: => {int((count_empty + count_full) / len(station_copy) * 100)}% sont problématiques")
+
+nb_a_2, nb_p_2, nb_a2_2, nb_p2_2, nb_b_2, idx_2, i_2, batch_stats_2 = execute_nv_algo(station_copy, users_dict_copy)
+
+show_stats(batch_stats_1, batch_stats_2)

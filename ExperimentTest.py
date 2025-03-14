@@ -68,6 +68,55 @@ def compute_result_accepted_offer_per_user(nb_user_total, count_zero_accepted = 
     
 def compute_proposed_per_considere():
     pass
+
+
+#######################################################
+#####
+##### distribution of stats
+#####
+#######################################################
+
+def show_stats(batch_stats1, batch_stats2):
+    # Statistiques à comparer sur un même graphique
+    common_stats = ["budget", "service_level", "percent_problematic"]
+    
+    # Statistiques affichées indépendamment
+    independent_stats = ["proposed_1", "accepted_1", "percent_accepted_1", 
+                         "proposed_2", "accepted_2", "percent_accepted_2"]
+
+    #fig, axes = plt.subplots(len(common_stats) + len(independent_stats), 1, figsize=(10, (len(common_stats) + len(independent_stats)) * 3))
+    
+    batches1 = [entry["batch"] for entry in batch_stats1]
+    batches2 = [entry["batch"] for entry in batch_stats2]
+    
+    for i, stat in enumerate(common_stats):
+        plt.figure(figsize=(10, 5))
+        values1 = [entry[stat] for entry in batch_stats1]
+        values2 = [entry[stat] for entry in batch_stats2]
+        
+        plt.plot(batches1, values1, marker='o', linestyle='-', color='b', label="Algo 1")
+        plt.plot(batches2, values2, marker='s', linestyle='--', color='r', label="Algo 2")
+        plt.xlabel("Batch Number")
+        plt.ylabel(stat.replace("_", " ").title())
+        plt.title(f"Comparaison de {stat.replace('_', ' ').title()}")
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+    """# Affichage indépendant pour les autres statistiques
+    for j, stat in enumerate(independent_stats):
+        values1 = [entry[stat] for entry in batch_stats1]
+        values2 = [entry[stat] for entry in batch_stats2]
+        
+        ax = axes[len(common_stats) + j]
+        ax.plot(batches1, values1, marker='o', linestyle='-', color='b', label=f"Algo 1 - {stat}")
+        ax.plot(batches2, values2, marker='s', linestyle='--', color='r', label=f"Algo 2 - {stat}")
+        ax.set_xlabel("Batch Number")
+        ax.set_ylabel(stat.replace("_", " ").title())
+        ax.set_title(f"Évolution de {stat.replace('_', ' ').title()} par Batch")
+        ax.grid(True)
+        ax.legend()"""
+
     
 
 #######################################################

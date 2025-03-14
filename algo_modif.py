@@ -18,31 +18,7 @@ data_trip = pd.read_csv("./modifier data/202207-bluebikes-tripdata2.csv")
 data_user = pd.read_csv("./modifier data/unique_users2.csv")
 
 NB_USER = len(data_user)
-NB_STATION = len(data_stations)
-STATIONS = []
-USERS = []
-CAPACITE_STATION = 5
 
-def init():
-    stations = []
-    count_full = 0
-    count_empty = 0
-    for _, row in data_stations.iterrows():  
-        station_id = row['station id']
-        latitude = row['latitude']
-        longitude = row['longitude']
-        bikes = random.randint(0,CAPACITE_STATION)
-        stations.append(Station(station_id, (latitude, longitude), bikes, CAPACITE_STATION))
-        if bikes == CAPACITE_STATION:
-            count_full += 1
-        elif bikes == 0:
-            count_empty += 1
-    print(f"il y a {count_empty} stations vide et {count_full} stations pleine sur 430 stations: {int((count_empty+count_full)/430*100)}% sont problématique")
-    users = []
-    for _, row in data_user.iterrows():
-        users.append(User(row['user_id'], row['gamma_u'], row['c_u']))
-    
-    return stations, users
 
 def init_price(c_min=0.5, c_max=2, k=5):
     return [round(c_min + i * (c_max - c_min) / k, 2) for i in range(k + 1)]
@@ -78,18 +54,18 @@ def DBP_UCB(para):
     return prices[i_n]
     
 
-def IDS_modif(latu, longu, current_user, info_for_DBP, obj_station=None):
+def IDS_modif(latu, longu, current_user, info_for_DBP, stations, obj_station=None):
     
     # cherche la default target
     if(obj_station is None):
-        default_target, _ = find_min_station(STATIONS, latu, longu)
+        default_target, _ = find_min_station(stations, latu, longu)
     else:
         default_target = obj_station
         
             
     #Construire liste des stations candidates
     C = [
-        station for station in STATIONS
+        station for station in stations
         if (
             distance(latu, longu, station.localisation[0], station.localisation[1]) <= current_user.max_distance
             and (
@@ -149,11 +125,14 @@ def Simulation_modif(batch, stations, user_dict):
     total_persons_last_interval = 0
     
     #Var arrêt...
-    arret = 800000
+    arret = 2678400
+    
+    # Stockage des statistiques par batch
+    batch_stats = []
     
     for i in range(2678400):
-        if(i > arret):
-            return nb_accepted_offre, nb_proposed_offre, nb_accepted_offre2, nb_proposed_offre2, nb_batch, current_idx, i
+        if nb_batch > 370:
+            return nb_accepted_offre, nb_proposed_offre, nb_accepted_offre2, nb_proposed_offre2, nb_batch, current_idx, i, batch_stats
         #Proposition Mi-parcours
         if Remember_offre and i == next(iter(Remember_offre)):
             #DO 2eme offre
@@ -166,7 +145,7 @@ def Simulation_modif(batch, stations, user_dict):
                     info_for_DBP = [prices, n, budget, N_n, F_n, B_n]
                     changement_station = False
 
-                    s_star, p_star = IDS_modif(pos[0], pos[1], user, info_for_DBP, obj_station=station)
+                    s_star, p_star = IDS_modif(pos[0], pos[1], user, info_for_DBP, stations, obj_station=station)
                     if(p_star is not None):
                         nb_proposed_offre2 += 1
                         nb_pr_per_batch2 += 1
@@ -216,14 +195,27 @@ def Simulation_modif(batch, stations, user_dict):
             if(nb_batch % 10 == 0):
                 persons_in_interval = current_idx - total_persons_last_interval
                 total_persons_last_interval = current_idx
+                service_level = (potential_customer - no_service_event) / potential_customer if potential_customer > 0 else 0
+                percent_problematic = int(sum(1 for station in stations if station.problematic() != "null") * 100 / nb_stations)
+                
+                batch_stats.append({
+                    "batch": nb_batch,
+                    "service_level": service_level,
+                    "proposed_1": nb_pr_per_batch,
+                    "accepted_1": nb_ac_per_batch,
+                    "percent_accepted_1": int(nb_ac_per_batch / nb_pr_per_batch * 100) if nb_pr_per_batch > 0 else 0,
+                    "proposed_2": nb_pr_per_batch2,
+                    "accepted_2": nb_ac_per_batch2,
+                    "percent_accepted_2": int(nb_ac_per_batch2 / nb_pr_per_batch2 * 100) if nb_pr_per_batch2 > 0 else 0,
+                    "budget": int(B_n),
+                    "percent_problematic": percent_problematic
+                })
+                
                 print("----------------------------------------------------------------------------------------------------------------------------")
-                print(f"Juste pour les batchs [{nb_batch}/{int(arret/7200)}] ==> proposed: {nb_pr_per_batch}, accepted: {nb_ac_per_batch} // {int(nb_ac_per_batch/nb_pr_per_batch*100)}% en premiere instance |=> Service Level: {(potential_customer - no_service_event) / potential_customer}|| Budget: {int(B_n)}")
-                print(f"{nb_considerer2} trip considéré en deuxieme instance || parmis ceux-la: proposed: {nb_pr_per_batch2}, accepted: {nb_ac_per_batch2} // {int(nb_ac_per_batch2/nb_pr_per_batch2*100) if nb_pr_per_batch2 != 0 else 0}% en deuxieme instance")
-                count_pb = 0
-                for station in stations:
-                    if station.problematic() != "null":
-                      count_pb += 1
-                print(f"{int(count_pb*100 / nb_stations)}% des stations sont problématiques")  
+                print(f"Batch [{nb_batch - 10} --> {nb_batch}]: Service Level: {service_level}, Budget: {int(B_n)}, Stations problématiques: {percent_problematic}%")
+                print(f"1ère Instance - Proposés: {nb_pr_per_batch}, Acceptés: {nb_ac_per_batch} ({batch_stats[-1]['percent_accepted_1']}%)")
+                print(f"2ème Instance - Considérés: {nb_considerer2}, Proposés: {nb_pr_per_batch2}, Acceptés: {nb_ac_per_batch2} ({batch_stats[-1]['percent_accepted_2']}%)")
+                
                 nb_ac_per_batch = 0
                 nb_pr_per_batch = 0
                 nb_ac_per_batch2 = 0
@@ -251,7 +243,7 @@ def Simulation_modif(batch, stations, user_dict):
                 latu, longu = current_user.generate_random_location((start_lat, start_long), 100)
                 
                 #Incentives Deployment Schema
-                s_star, p_star = IDS_modif(latu, longu, current_user, info_for_DBP)
+                s_star, p_star = IDS_modif(latu, longu, current_user, info_for_DBP, stations)
                 
                 if(p_star is not None):
                     nb_proposed_offre += 1
@@ -280,17 +272,19 @@ def Simulation_modif(batch, stations, user_dict):
             
             current_idx = idx_next_trip[-1] + 1                
             tps_next_trip, idx_next_trip = get_next_trip(current_idx)
+    
+    return nb_accepted_offre, nb_proposed_offre, nb_accepted_offre2, nb_proposed_offre2, nb_batch, current_idx, i, batch_stats
         
+def execute_nv_algo(stations, users_dict):
+    NB_STAION = len(stations)
+    #STATIONS_DICT = {station.id: station for station in STATIONS}
 
-STATIONS, USERS = init()
-USERS_DICT = {user.id: user for user in USERS}
-NB_STAION = len(STATIONS)
-#STATIONS_DICT = {station.id: station for station in STATIONS}
-
-batch = Batch()
-nb_a, nb_p, nb_a2, nb_p2, nb_b, idx, i = Simulation_modif(batch, STATIONS, USERS_DICT)
-print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%) | En première instance")
-print(f"Il y a eu {nb_a2} offres acceptées sur {nb_p2} proposées dans les {nb_b} premiers batch, ({int(nb_a2 / nb_p2  * 100)}%) | En deuxième instance")
-compute_result_accepted_offer_per_user(len(USERS), False)
-#print(get_z(data_trip))
+    batch = Batch()
+    nb_a, nb_p, nb_a2, nb_p2, nb_b, idx, i, batch_stats = Simulation_modif(batch, stations, users_dict)
+    print(f"Il y a eu {nb_a} offres acceptées sur {nb_p} proposées dans les {nb_b} premiers batch, ({int(nb_a / nb_p  * 100)}%) | En première instance")
+    print(f"Il y a eu {nb_a2} offres acceptées sur {nb_p2} proposées dans les {nb_b} premiers batch, ({int(nb_a2 / nb_p2  * 100)}%) | En deuxième instance")
+    #compute_result_accepted_offer_per_user(len(users_dict), False)
+    #print(get_z(data_trip))
+    
+    return nb_a, nb_p, nb_a2, nb_p2, nb_b, idx, i, batch_stats
     
